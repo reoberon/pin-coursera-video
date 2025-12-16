@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pin Coursera Video
 // @namespace    http://tampermonkey.net/
-// @version      0.0.1
+// @version      0.0.2
 // @description  Add a button to pin coursera video plyer on the page when scrolling down the page to see more content.
 // @author       reoberon
 // @match        https://www.coursera.org/learn/*/lecture/*
