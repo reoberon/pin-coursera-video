@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         Pin Coursera Video
 // @namespace    http://tampermonkey.net/
-// @version      0.0.2
+// @version      0.0.3
 // @description  Add a button to pin coursera video plyer on the page when scrolling down the page to see more content.
 // @author       reoberon
-// @match        https://www.coursera.org/learn/*/lecture/*
+// @match        https://www.coursera.org/*
 // @grant        none
 // @run-at       document-idle
 // @updateURL    https://raw.githubusercontent.com/reoberon/pin-coursera-video/main/index.js
@@ -14,10 +14,33 @@
 const player = '[aria-label="Video Player"]';
 const innerContainer = '[data-testid="inner-container"]';
 const outerContainer = '[data-testid="outer-container"]';
+const ROUTE_EVENT = "routechange";
+let initialized = false;
+let pinButton = null;
 
-(async function () {
+(function () {
   "use strict";
 
+  handleNewPage();
+  watchSpaRout();
+  window.addEventListener(ROUTE_EVENT, handleNewPage);
+})();
+
+function handleNewPage() {
+  if (!isLecturePage()) return;
+  initialized ? insertPinButton() : init();
+}
+
+function isLecturePage() {
+  return !!location.href.match(
+    /^https:\/\/\w+\.coursera\.org\/learn\/[^\s\/?#]+\/lecture\/.*/i
+  );
+}
+
+async function init() {
+  if (initialized) return;
+
+  initialized = true;
   const pinButtonStyles = new Style(`
       #pinVideoButton {
         position: absolute;
@@ -59,17 +82,9 @@ const outerContainer = '[data-testid="outer-container"]';
 
   document.head.append(pinButtonStyles);
 
-  const pinButton = document.createElement("button");
+  pinButton = document.createElement("button");
   pinButton.innerHTML = "<span>pin</span>";
   pinButton.id = "pinVideoButton";
-
-  const container = await waitForElement(
-    `${innerContainer}:has(${player})`
-  ).catch((msg) => {
-    throw new Error(`Video container not found:\n\t${msg}`);
-  });
-
-  container.append(pinButton);
 
   const pinnedVideoStyles = new Style(`
         ${outerContainer}:has(${innerContainer}):has(${player}) {
@@ -78,7 +93,7 @@ const outerContainer = '[data-testid="outer-container"]';
             top: 0;
 
             ${innerContainer} {
-                height: 400px!important;
+                height: inherit!important;
             }
         }
     `);
@@ -90,7 +105,82 @@ const outerContainer = '[data-testid="outer-container"]';
       document.head.append(pinnedVideoStyles);
     }
   });
-})();
+
+  insertPinButton();
+}
+
+async function getFreshContainer() {
+  return new Promise((res, rej) => {
+    waitForElement(`${innerContainer}:has(${player})`)
+      .then((el) => res(el))
+      .catch((msg) => {
+        console.error(`Video container not found:\n\t${msg}`);
+        rej(null);
+      });
+  });
+}
+
+async function insertPinButton() {
+  const container = await getFreshContainer();
+  if (!container) return;
+  if (!container.contains(pinButton)) {
+    container.append(pinButton);
+  }
+}
+
+function watchSpaRout() {
+  function emitRouteChange(from, to, reason) {
+    window.dispatchEvent(
+      new CustomEvent(ROUTE_EVENT, {
+        detail: { from, to, reason }, // reason: 'pushState' | 'replaceState' | 'popstate' | 'hashchange' | 'load'
+      })
+    );
+  }
+
+  let lastURL = location.href;
+
+  const originalPushState = history.pushState;
+  history.pushState = function (...args) {
+    const from = lastURL;
+    const result = originalPushState.apply(this, args);
+    const to = location.href;
+    if (to !== from) {
+      lastURL = to;
+      emitRouteChange(from, to, "pushState");
+    }
+    return result;
+  };
+
+  const originalReplaceState = history.replaceState;
+  history.replaceState = function (...args) {
+    const from = lastURL;
+    const result = originalReplaceState.apply(this, args);
+    const to = location.href;
+    if (to !== from) {
+      lastURL = to;
+      emitRouteChange(from, to, "replaceState");
+    }
+    return result;
+  };
+
+  window.addEventListener("popstate", () => {
+    const from = lastURL;
+    const to = location.href;
+    if (to !== from) {
+      lastURL = to;
+      emitRouteChange(from, to, "popstate");
+    }
+  });
+
+  window.addEventListener("hashchange", () => {
+    const from = lastURL;
+    const to = location.href;
+    if (to !== from) {
+      lastURL = to;
+      emitRouteChange(from, to, "hashchange");
+    }
+  });
+}
 
 async function waitForElement(
   selector,
