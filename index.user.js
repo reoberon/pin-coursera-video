@@ -7,8 +7,8 @@
 // @match        https://www.coursera.org/*
 // @grant        none
 // @run-at       document-idle
-// @updateURL    https://raw.githubusercontent.com/reoberon/pin-coursera-video/main/index.js
-// @downloadURL  https://raw.githubusercontent.com/reoberon/pin-coursera-video/main/index.js
+// @updateURL    https://raw.githubusercontent.com/reoberon/pin-coursera-video/main/index.user.js
+// @downloadURL  https://raw.githubusercontent.com/reoberon/pin-coursera-video/main/index.user.js
 // ==/UserScript==
 
 const player = '[aria-label="Video Player"]';
